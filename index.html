@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Math Rush: Calculus Edition</title>
+<style>
+body {
+  margin: 0;
+  font-family: 'Segoe UI', sans-serif;
+  background: radial-gradient(circle at center, #111, #000);
+  color: white;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 100vh;
+}
+.game {
+  width: 380px;
+  padding: 20px;
+  border-radius: 20px;
+  background: #1a1a1a;
+  box-shadow: 0 0 30px rgba(0,255,255,0.2);
+}
+.top { display: flex; justify-content: space-between; margin-bottom: 20px; font-size: 18px; }
+.timer { color: #00ffcc; }
+.score { color: #ffcc00; }
+.question {
+  text-align: center;
+  font-size: 30px;
+  margin: 20px 0;
+  font-weight: bold;
+  min-height: 100px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  background: rgba(255,255,255,0.05);
+  border-radius: 15px;
+  line-height: 1.4;
+}
+.choices { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+button {
+  padding: 15px;
+  font-size: 22px;
+  border: none;
+  border-radius: 10px;
+  background: #333;
+  color: white;
+  cursor: pointer;
+  transition: 0.2s;
+}
+button:hover { background: #444; }
+.correct { background: #00cc66 !important; }
+.wrong { background: #cc0033 !important; }
+.bottom { margin-top: 20px; display: flex; justify-content: space-between; height: 30px; }
+.combo { color: #ff6699; font-weight: bold; }
+.hidden { display: none; }
+.big-btn {
+  margin-top: 20px;
+  padding: 15px 30px;
+  font-size: 18px;
+  border-radius: 10px;
+  background: #00ccff;
+  border: none;
+  cursor: pointer;
+  font-weight: bold;
+}
+</style>
+</head>
+<body>
+
+<div class="game">
+  <div id="startScreen" class="start-screen" style="text-align:center;">
+    <h1>⚡ Math Rush</h1>
+    <p>사칙연산 + 미분 + 적분<br>멈춤 현상 해결 버전</p>
+    <button class="big-btn" onclick="startGame()">시작하기</button>
+  </div>
+
+  <div id="playScreen" class="play-screen hidden">
+    <div class="top">
+      <div class="timer">⏱ <span id="time">60</span></div>
+      <div class="score">🏆 <span id="score">0</span></div>
+    </div>
+    <div class="question" id="question"></div>
+    <div class="choices" id="choices"></div>
+    <div class="bottom">
+      <div class="combo">🔥 x<span id="combo">0</span></div>
+      <div id="feedback"></div>
+    </div>
+  </div>
+
+  <div id="endScreen" class="end-screen hidden" style="text-align:center;">
+    <h2>🎉 종료!</h2>
+    <p>최종 점수: <span id="finalScore" class="score"></span></p>
+    <p>정확도: <span id="accuracy"></span>%</p>
+    <button class="big-btn" onclick="location.reload()">다시하기</button>
+  </div>
+</div>
+
+<script>
+let score = 0, time = 60, combo = 0, timer, isGameOver = false;
+let totalAnswered = 0, totalCorrect = 0, correctAnswer;
+
+function startGame() {
+  document.getElementById('startScreen').classList.add('hidden');
+  document.getElementById('playScreen').classList.remove('hidden');
+  nextQuestion();
+  timer = setInterval(() => {
+    time--;
+    document.getElementById('time').textContent = time;
+    if (time <= 0) endGame();
+  }, 1000);
+}
+
+function nextQuestion() {
+  if (isGameOver) return;
+  let qHtml = "";
+  let rand = Math.random();
+
+  if (rand < 0.4) { // 사칙연산
+    let a = Math.floor(Math.random() * 15) + 2;
+    let b = Math.floor(Math.random() * 15) + 2;
+    let op = ['+', '-', '*'][Math.floor(Math.random() * 3)];
+    if (op === '*') { a = Math.floor(Math.random() * 8) + 2; b = Math.floor(Math.random() * 8) + 2; }
+    correctAnswer = (op === '+') ? a + b : (op === '-') ? a - b : a * b;
+    qHtml = `${a} ${op} ${b}`;
+  } 
+  else if (rand < 0.7) { // 미분
+    let a = Math.floor(Math.random() * 4) + 1;
+    let x = Math.floor(Math.random() * 4) + 2;
+    correctAnswer = 2 * a * x;
+    qHtml = `(${a === 1 ? '' : a}x²)' <br><small style="font-size:16px; color:#00ccff;">x = ${x}</small>`;
+  } 
+  else { // 적분 (깔끔한 숫자로 교정)
+    let a = Math.floor(Math.random() * 3) + 1; // 1, 2, 3
+    let x = Math.floor(Math.random() * 4) + 2; // 2, 3, 4, 5
+    correctAnswer = a * (x * x);
+    qHtml = `∫ ${2 * a}x dx <br><small style="font-size:16px; color:#ffcc00;">x = ${x}</small>`;
+  }
+
+  document.getElementById('question').innerHTML = qHtml;
+
+  // --- 보기 생성 (무한 루프 방지 로직) ---
+  let answers = [correctAnswer];
+  let attempts = 0;
+  while (answers.length < 4 && attempts < 30) {
+    attempts++;
+    let offset = Math.floor(Math.random() * 10) + 1;
+    if (Math.random() > 0.5) offset *= -1;
+    let wrong = correctAnswer + offset;
+    if (wrong >= 0 && !answers.includes(wrong)) answers.push(wrong);
+  }
+  // 혹시라도 보기가 4개가 안 채워졌을 경우를 대비한 안전 장치
+  while (answers.length < 4) {
+    let fallback = correctAnswer + answers.length + 1;
+    if (!answers.includes(fallback)) answers.push(fallback);
+  }
+  // ---------------------------------------
+
+  answers.sort(() => Math.random() - 0.5);
+  let choicesDiv = document.getElementById('choices');
+  choicesDiv.innerHTML = '';
+  answers.forEach(ans => {
+    let btn = document.createElement('button');
+    btn.textContent = ans;
+    btn.onclick = () => check(btn, ans);
+    choicesDiv.appendChild(btn);
+  });
+}
+
+function check(btn, ans) {
+  if (document.getElementById('feedback').textContent !== '') return;
+  totalAnswered++;
+  const fb = document.getElementById('feedback');
+  if (ans === correctAnswer) {
+    totalCorrect++; score += 10 + (combo * 5); combo++;
+    btn.classList.add('correct'); fb.textContent = '✅';
+  } else {
+    combo = 0; btn.classList.add('wrong'); fb.textContent = '❌';
+  }
+  document.getElementById('score').textContent = score;
+  document.getElementById('combo').textContent = combo;
+  setTimeout(() => { fb.textContent = ''; nextQuestion(); }, 350);
+}
+
+function endGame() {
+  isGameOver = true;
+  clearInterval(timer);
+  document.getElementById('playScreen').classList.add('hidden');
+  document.getElementById('endScreen').classList.remove('hidden');
+  document.getElementById('finalScore').textContent = score;
+  document.getElementById('accuracy').textContent = totalAnswered > 0 ? Math.round((totalCorrect/totalAnswered)*100) : 0;
+}
+</script>
+</body>
+</html>
